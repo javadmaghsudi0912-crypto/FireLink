@@ -1,0 +1,7 @@
+# Copy this file to local.properties and fill values.
+# Android Studio usually writes sdk.dir automatically.
+
+FIREBASE_API_KEY=PASTE_FIREBASE_WEB_API_KEY
+FIREBASE_APP_ID=PASTE_FIREBASE_ANDROID_APP_ID
+FIREBASE_DATABASE_URL=https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com
+FIREBASE_PROJECT_ID=YOUR_PROJECT_ID

@@ -1,0 +1,27 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "teams": {
+      "$teamId": {
+        ".read": "auth != null && root.child('teams').child($teamId).child('members').child(auth.uid).val() == true",
+        "incidents": {
+          ".write": "auth != null && root.child('teams').child($teamId).child('members').child(auth.uid).val() == true",
+          "$incidentId": {
+            ".validate": "newData.hasChildren(['id','latitude','longitude','accuracyM','creatorUid','unitName','createdAt','status'])",
+            "latitude": { ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90" },
+            "longitude": { ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180" },
+            "accuracyM": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" },
+            "creatorUid": { ".validate": "newData.val() == auth.uid" },
+            "unitName": { ".validate": "newData.isString() && newData.val().length <= 80" },
+            "note": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 500)" },
+            "status": { ".validate": "newData.val() == 'ACTIVE' || newData.val() == 'CLOSED'" }
+          }
+        },
+        "members": {
+          ".write": false
+        }
+      }
+    }
+  }
+}
