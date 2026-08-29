@@ -5,3 +5,6 @@ local.properties
 *.keystore
 app/build/
 build/
+**/build/
+*.apk
+*.aab

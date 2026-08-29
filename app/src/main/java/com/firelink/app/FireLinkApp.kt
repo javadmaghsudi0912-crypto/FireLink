@@ -1,5 +1,4 @@
 package com.firelink.app
-
 import android.app.Application
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
@@ -9,11 +8,8 @@ class FireLinkApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AppContext.ctx = applicationContext
-        if (BuildConfig.FIREBASE_API_KEY.isNotBlank() &&
-            BuildConfig.FIREBASE_APP_ID.isNotBlank() &&
-            BuildConfig.FIREBASE_DATABASE_URL.isNotBlank() &&
-            FirebaseApp.getApps(this).isEmpty()
-        ) {
+        if (BuildConfig.FIREBASE_API_KEY.isNotBlank() && BuildConfig.FIREBASE_APP_ID.isNotBlank() &&
+            BuildConfig.FIREBASE_DATABASE_URL.isNotBlank() && FirebaseApp.getApps(this).isEmpty()) {
             val options = FirebaseOptions.Builder()
                 .setApiKey(BuildConfig.FIREBASE_API_KEY)
                 .setApplicationId(BuildConfig.FIREBASE_APP_ID)
