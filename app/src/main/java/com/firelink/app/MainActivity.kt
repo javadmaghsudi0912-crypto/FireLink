@@ -1,6 +1,7 @@
 package com.firelink.app
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -114,6 +115,24 @@ class MainActivity : ComponentActivity() {
             if (!fine && !coarse) status = "مجوز موقعیت لازم است."
         }
 
+        val mapPickerLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+                val lat = result.data?.getDoubleExtra("latitude", Double.NaN) ?: Double.NaN
+                val lon = result.data?.getDoubleExtra("longitude", Double.NaN) ?: Double.NaN
+                if (!lat.isNaN() && !lon.isNaN()) {
+                    scope.launch {
+                        status = "در حال ارسال نقطه انتخابی..."
+                        runCatching {
+                            repo.sendIncident(teamId, Incident(latitude = lat, longitude = lon, accuracyM = 0.0, note = note, unitName = unitName))
+                        }.onSuccess { status = "نقطه انتخابی برای تیم ارسال شد."; note = "" }
+                         .onFailure { status = it.message ?: "ارسال نقطه ناموفق" }
+                    }
+                }
+            }
+        }
+
         LaunchedEffect(teamId) {
             if (teamId.isNotBlank()) {
                 repo.observeIncidents(
@@ -161,6 +180,20 @@ class MainActivity : ComponentActivity() {
                             Text(if (shiftActive) "پایان شیفت" else "شروع شیفت")
                         }
                     }
+
+                    Button(
+                        enabled = teamId.isNotBlank() && unitName.isNotBlank(),
+                        onClick = {
+                            scope.launch {
+                                val intent = Intent(this@MainActivity, MapPickerActivity::class.java)
+                                val hasLocation = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                if (hasLocation) {
+                                    runCatching { locationHelper.current() }.getOrNull()?.let { loc -> intent.putExtra("startLat", loc.latitude); intent.putExtra("startLon", loc.longitude) }
+                                }
+                                mapPickerLauncher.launch(intent)
+                            }
+                        }
+                    ) { Text("انتخاب نقطه روی نقشه و ارسال") }
 
                     Button(
                         enabled = teamId.isNotBlank() && unitName.isNotBlank(),
