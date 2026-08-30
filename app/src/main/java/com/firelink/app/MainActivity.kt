@@ -11,37 +11,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.lightColorScheme
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,6 +32,8 @@ private val FireRed = Color(0xFFD21F26)
 private val SoftRed = Color(0xFFFFF3F3)
 private val Ink = Color(0xFF202124)
 private val Muted = Color(0xFF6F7378)
+private val Success = Color(0xFF268A45)
+
 private val FireLinkColors = lightColorScheme(
     primary = FireRed,
     onPrimary = Color.White,
@@ -72,15 +50,12 @@ private val FireLinkColors = lightColorScheme(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme(colorScheme = FireLinkColors) { FireLineScreen() }
-        }
+        setContent { MaterialTheme(colorScheme = FireLinkColors) { FireLineScreen() } }
     }
 
     @Composable
     private fun FireLineScreen() {
-        val configured = remember { FirebaseProvider.configured() }
-        if (!configured) {
+        if (!remember { FirebaseProvider.configured() }) {
             Column(
                 modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -90,11 +65,15 @@ class MainActivity : ComponentActivity() {
             }
             return
         }
+
         var signedIn by remember { mutableStateOf(FirebaseProvider.auth.currentUser != null) }
-        if (!signedIn) LoginScreen { signedIn = true }
-        else HomeScreen {
-            FirebaseProvider.auth.signOut()
-            signedIn = false
+        if (!signedIn) {
+            LoginScreen { signedIn = true }
+        } else {
+            HomeScreen {
+                FirebaseProvider.auth.signOut()
+                signedIn = false
+            }
         }
     }
 
@@ -118,10 +97,10 @@ class MainActivity : ComponentActivity() {
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("FireLink", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Ink)
+                        Text("FireLink", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold)
                         Text("GM", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = FireRed)
                     }
-                    Text("سامانه اشتراک موقعیت عملیات", color = Muted, style = MaterialTheme.typography.bodyMedium)
+                    Text("سامانه اشتراک موقعیت عملیات", color = Muted)
                 }
             }
         }
@@ -131,13 +110,17 @@ class MainActivity : ComponentActivity() {
     private fun LoginScreen(onSuccess: () -> Unit) {
         val scope = rememberCoroutineScope()
         val repo = remember { FireRepository() }
-        var registerMode by remember { mutableStateOf(false) }
+        var mode by remember { mutableStateOf("login") }
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         var confirmPassword by remember { mutableStateOf("") }
         var displayName by remember { mutableStateOf("") }
-        var teamId by remember { mutableStateOf("") }
+        var teamCode by remember { mutableStateOf("") }
+        var teamName by remember { mutableStateOf("") }
         var message by remember { mutableStateOf("") }
+        var success by remember { mutableStateOf(false) }
+
+        fun clearMessage() { message = ""; success = false }
 
         LazyColumn(
             modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp, vertical = 16.dp),
@@ -155,95 +138,201 @@ class MainActivity : ComponentActivity() {
                         verticalArrangement = Arrangement.spacedBy(13.dp)
                     ) {
                         Text(
-                            if (registerMode) "ساخت حساب جدید" else "ورود به FireLink GM",
+                            when (mode) {
+                                "join" -> "عضویت در تیم موجود"
+                                "create" -> "ساخت تیم جدید"
+                                else -> "ورود به FireLink GM"
+                            },
                             style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Ink
+                            fontWeight = FontWeight.ExtraBold
                         )
+
                         Text(
-                            if (registerMode) "مشخصات خود را وارد کنید؛ عضویت تیم پس از تأیید مدیر فعال می‌شود." else "با حساب عضو تیم وارد شوید.",
+                            when (mode) {
+                                "join" -> "کد تیم را وارد کنید؛ درخواست تا زمان تصمیم مدیر باقی می‌ماند."
+                                "create" -> "یک تیم مستقل با کد یکتا ساخته می‌شود و شما مدیر آن خواهید بود."
+                                else -> "با حساب خود وارد شوید."
+                            },
                             color = Muted
                         )
 
-                        if (registerMode) {
-                            OutlinedTextField(displayName, { displayName = it }, label = { Text("نام و نام خانوادگی") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
-                            OutlinedTextField(teamId, { teamId = it }, label = { Text("شناسه گروه") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
+                        if (mode != "login") {
+                            OutlinedTextField(
+                                value = displayName,
+                                onValueChange = { displayName = it },
+                                label = { Text(if (mode == "create") "نام مدیر" else "نام و نام خانوادگی") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp)
+                            )
                         }
-                        OutlinedTextField(email, { email = it }, label = { Text("ایمیل") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
-                        OutlinedTextField(password, { password = it }, label = { Text("رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(16.dp))
-                        if (registerMode) {
-                            OutlinedTextField(confirmPassword, { confirmPassword = it }, label = { Text("تکرار رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(16.dp))
+
+                        if (mode == "join") {
+                            OutlinedTextField(
+                                value = teamCode,
+                                onValueChange = { teamCode = it },
+                                label = { Text("کد تیم") },
+                                supportingText = { Text("مثال: FL-8K4P2Q یا کد تیم قدیمی") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                        }
+
+                        if (mode == "create") {
+                            OutlinedTextField(
+                                value = teamName,
+                                onValueChange = { teamName = it },
+                                label = { Text("نام تیم / ایستگاه") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(16.dp)
+                            )
+                        }
+
+                        OutlinedTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            label = { Text("ایمیل") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("رمز عبور") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            visualTransformation = PasswordVisualTransformation(),
+                            shape = RoundedCornerShape(16.dp)
+                        )
+                        if (mode != "login") {
+                            OutlinedTextField(
+                                value = confirmPassword,
+                                onValueChange = { confirmPassword = it },
+                                label = { Text("تکرار رمز عبور") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation(),
+                                shape = RoundedCornerShape(16.dp)
+                            )
                         }
 
                         Button(
                             onClick = {
                                 scope.launch {
-                                    message = ""
-                                    if (!registerMode) {
-                                        runCatching { repo.signIn(email, password) }
+                                    clearMessage()
+                                    when (mode) {
+                                        "login" -> runCatching { repo.signIn(email, password) }
                                             .onSuccess { onSuccess() }
                                             .onFailure { message = it.message ?: "خطا در ورود" }
-                                    } else {
-                                        when {
+
+                                        "join" -> when {
                                             displayName.trim().length < 2 -> message = "نام را کامل وارد کنید."
-                                            teamId.trim().isBlank() -> message = "شناسه گروه را وارد کنید."
+                                            teamCode.trim().isBlank() -> message = "کد تیم را وارد کنید."
                                             !email.contains("@") -> message = "ایمیل معتبر وارد کنید."
                                             password.length < 8 -> message = "رمز عبور باید حداقل ۸ کاراکتر باشد."
                                             password != confirmPassword -> message = "تکرار رمز عبور یکسان نیست."
-                                            else -> runCatching { repo.registerUser(email, password, displayName, teamId) }
-                                                .onSuccess { uid ->
-                                                    message = "حساب ساخته شد و درخواست عضویت برای مدیر ارسال شد."
-                                                    password = ""
-                                                    confirmPassword = ""
-                                                }
-                                                .onFailure { message = it.message ?: "ثبت‌نام ناموفق بود" }
+                                            else -> runCatching {
+                                                repo.registerUser(email, password, displayName, teamCode)
+                                            }.onSuccess {
+                                                message = "حساب ساخته شد و درخواست عضویت برای مدیر ارسال شد."
+                                                success = true
+                                                password = ""
+                                                confirmPassword = ""
+                                            }.onFailure { message = it.message ?: "ثبت‌نام ناموفق بود" }
+                                        }
+
+                                        "create" -> when {
+                                            displayName.trim().length < 2 -> message = "نام مدیر را کامل وارد کنید."
+                                            teamName.trim().length < 2 -> message = "نام تیم را کامل وارد کنید."
+                                            !email.contains("@") -> message = "ایمیل معتبر وارد کنید."
+                                            password.length < 8 -> message = "رمز عبور باید حداقل ۸ کاراکتر باشد."
+                                            password != confirmPassword -> message = "تکرار رمز عبور یکسان نیست."
+                                            else -> runCatching {
+                                                repo.registerAdminAndCreateTeam(email, password, displayName, teamName)
+                                            }.onSuccess { onSuccess() }
+                                                .onFailure { message = it.message ?: "ساخت تیم ناموفق بود" }
                                         }
                                     }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp)
-                        ) { Text(if (registerMode) "ثبت‌نام امن" else "ورود", modifier = Modifier.padding(vertical = 4.dp), fontWeight = FontWeight.Bold) }
+                        ) {
+                            Text(
+                                when (mode) {
+                                    "join" -> "ثبت‌نام و ارسال درخواست"
+                                    "create" -> "ساخت تیم و ورود مدیر"
+                                    else -> "ورود"
+                                },
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
 
-                        OutlinedButton(
-                            onClick = { registerMode = !registerMode; message = "" },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(16.dp)
-                        ) { Text(if (registerMode) "قبلاً ثبت‌نام کرده‌ام" else "ساخت حساب عضو جدید") }
-
-                        if (registerMode) {
+                        if (mode == "join") {
                             TextButton(
                                 onClick = {
                                     scope.launch {
-                                        message = ""
+                                        clearMessage()
                                         when {
                                             displayName.trim().length < 2 -> message = "نام را کامل وارد کنید."
-                                            teamId.trim().isBlank() -> message = "شناسه گروه را وارد کنید."
+                                            teamCode.trim().isBlank() -> message = "کد تیم را وارد کنید."
                                             email.isBlank() || password.isBlank() -> message = "ایمیل و رمز را وارد کنید."
-                                            else -> runCatching { repo.requestJoinExisting(email, password, displayName, teamId) }
-                                                .onSuccess { message = "درخواست عضویت برای مدیر ارسال شد." }
-                                                .onFailure { message = it.message ?: "ارسال درخواست ناموفق بود" }
+                                            else -> runCatching {
+                                                repo.requestJoinExisting(email, password, displayName, teamCode)
+                                            }.onSuccess {
+                                                message = "درخواست عضویت برای مدیر ارسال شد."
+                                                success = true
+                                            }.onFailure { message = it.message ?: "ارسال درخواست ناموفق بود" }
                                         }
                                     }
                                 },
                                 modifier = Modifier.fillMaxWidth()
-                            ) { Text("حسابم ساخته شده — فقط درخواست عضویت بفرست") }
+                            ) { Text("حسابم از قبل ساخته شده — فقط درخواست بفرست") }
                         }
+
+                        HorizontalDivider()
+                        OutlinedButton(
+                            onClick = { mode = "login"; clearMessage() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) { Text("ورود به حساب") }
+                        OutlinedButton(
+                            onClick = { mode = "join"; clearMessage() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) { Text("عضویت در تیم موجود") }
+                        OutlinedButton(
+                            onClick = { mode = "create"; clearMessage() },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) { Text("ساخت تیم جدید برای مدیر") }
 
                         if (message.isNotBlank()) {
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = CardDefaults.cardColors(containerColor = if (message.startsWith("حساب ساخته شد")) Color(0xFFF0FAF3) else SoftRed)
+                                colors = CardDefaults.cardColors(containerColor = if (success) Color(0xFFF0FAF3) else SoftRed)
                             ) {
-                                Text(message, modifier = Modifier.padding(12.dp), color = if (message.startsWith("حساب ساخته شد")) Color(0xFF268A45) else FireRed)
+                                Text(
+                                    message,
+                                    modifier = Modifier.padding(12.dp),
+                                    color = if (success) Success else FireRed
+                                )
                             }
                         }
                     }
                 }
             }
             item {
-                Text("GM • Fire & Rescue Technology", modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), textAlign = TextAlign.Center, color = Muted, style = MaterialTheme.typography.bodySmall)
+                Text(
+                    "GM • Fire & Rescue Technology",
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                    textAlign = TextAlign.Center,
+                    color = Muted,
+                    style = MaterialTheme.typography.bodySmall
+                )
             }
         }
     }
@@ -254,7 +343,12 @@ class MainActivity : ComponentActivity() {
         val repo = remember { FireRepository() }
         val locationHelper = remember { LocationHelper(this) }
         val scope = rememberCoroutineScope()
-        var teamId by remember { mutableStateOf(prefs.teamId) }
+
+        var teams by remember { mutableStateOf(emptyList<TeamSummary>()) }
+        var selectedTeamId by remember { mutableStateOf(prefs.teamId) }
+        val selectedTeam = teams.firstOrNull { it.teamId == selectedTeamId }
+        val isAdmin = selectedTeam?.role == "admin"
+
         var unitName by remember { mutableStateOf(prefs.unitName) }
         var smsNumber by remember { mutableStateOf(prefs.smsNumber) }
         var note by remember { mutableStateOf("") }
@@ -262,32 +356,80 @@ class MainActivity : ComponentActivity() {
         var joinRequests by remember { mutableStateOf(emptyList<JoinRequest>()) }
         var status by remember { mutableStateOf("") }
         var shiftActive by remember { mutableStateOf(false) }
+        var loadingTeams by remember { mutableStateOf(true) }
+        var showCreateTeam by remember { mutableStateOf(false) }
+        var newTeamName by remember { mutableStateOf("") }
+        var managerName by remember { mutableStateOf("") }
 
-        val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        suspend fun refreshTeams() {
+            loadingTeams = true
+            runCatching {
+                repo.ensureLegacyMembershipIndex(listOf(prefs.teamId, "team-001"))
+                repo.loadMyTeams()
+            }.onSuccess { loaded ->
+                teams = loaded
+                val preferred = loaded.firstOrNull { it.teamId == selectedTeamId }
+                    ?: loaded.firstOrNull { it.teamId == prefs.teamId }
+                    ?: loaded.firstOrNull()
+                selectedTeamId = preferred?.teamId ?: ""
+                prefs.teamId = selectedTeamId
+            }.onFailure { status = it.message ?: "دریافت تیم‌ها ناموفق بود." }
+            loadingTeams = false
+        }
+
+        LaunchedEffect(Unit) { refreshTeams() }
+
+        DisposableEffect(selectedTeamId, isAdmin) {
+            if (selectedTeamId.isBlank()) {
+                incidents = emptyList()
+                joinRequests = emptyList()
+                onDispose { }
+            } else {
+                val incidentListener = repo.observeIncidents(selectedTeamId, { incidents = it }, { status = it })
+                val joinListener = if (isAdmin) {
+                    repo.observeJoinRequests(
+                        selectedTeamId,
+                        { joinRequests = it },
+                        { status = "خطا در دریافت درخواست‌ها: $it" }
+                    )
+                } else null
+                if (!isAdmin) joinRequests = emptyList()
+
+                onDispose {
+                    repo.removeIncidentsListener(selectedTeamId, incidentListener)
+                    if (joinListener != null) repo.removeJoinRequestsListener(selectedTeamId, joinListener)
+                }
+            }
+        }
+
+        val permissionLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { result ->
             val fine = result[Manifest.permission.ACCESS_FINE_LOCATION] == true
             val coarse = result[Manifest.permission.ACCESS_COARSE_LOCATION] == true
             if (!fine && !coarse) status = "مجوز موقعیت لازم است."
         }
 
-        val mapPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val mapPickerLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
             if (result.resultCode == Activity.RESULT_OK) {
                 val lat = result.data?.getDoubleExtra("latitude", Double.NaN) ?: Double.NaN
                 val lon = result.data?.getDoubleExtra("longitude", Double.NaN) ?: Double.NaN
-                if (!lat.isNaN() && !lon.isNaN()) {
+                if (!lat.isNaN() && !lon.isNaN() && selectedTeamId.isNotBlank()) {
                     scope.launch {
                         status = "در حال ارسال نقطه انتخابی..."
-                        runCatching { repo.sendIncident(teamId, Incident(latitude = lat, longitude = lon, accuracyM = 0.0, note = note, unitName = unitName)) }
-                            .onSuccess { status = "نقطه انتخابی برای تیم ارسال شد."; note = "" }
-                            .onFailure { status = it.message ?: "ارسال نقطه ناموفق" }
+                        runCatching {
+                            repo.sendIncident(
+                                selectedTeamId,
+                                Incident(latitude = lat, longitude = lon, accuracyM = 0.0, note = note, unitName = unitName)
+                            )
+                        }.onSuccess {
+                            status = "نقطه انتخابی برای تیم ارسال شد."
+                            note = ""
+                        }.onFailure { status = it.message ?: "ارسال نقطه ناموفق" }
                     }
                 }
-            }
-        }
-
-        LaunchedEffect(teamId) {
-            if (teamId.isNotBlank()) {
-                repo.observeIncidents(teamId, { incidents = it }, { status = it })
-                repo.observeJoinRequests(teamId, { joinRequests = it }, { /* only admins can read requests */ })
             }
         }
 
@@ -295,152 +437,351 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 18.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            item { BrandHeader() }
+
             item {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    BrandHeader()
-                    OutlinedTextField(teamId, { teamId = it; prefs.teamId = it }, label = { Text("شناسه گروه") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
-                    OutlinedTextField(unitName, { unitName = it; prefs.unitName = it }, label = { Text("نام واحد / خودرو") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
-                    OutlinedTextField(smsNumber, { smsNumber = it; prefs.smsNumber = it }, label = { Text("شماره مقصد SMS (اختیاری)") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
-                    OutlinedTextField(note, { note = it }, label = { Text("توضیح حادثه (اختیاری)") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        OutlinedButton(
-                            onClick = {
-                                val permissions = buildList {
-                                    add(Manifest.permission.ACCESS_FINE_LOCATION)
-                                    add(Manifest.permission.ACCESS_COARSE_LOCATION)
-                                    if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-                                }.toTypedArray()
-                                permissionLauncher.launch(permissions)
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp)
-                        ) { Text("مجوزها") }
-                        OutlinedButton(
-                            onClick = {
-                                if (!shiftActive) {
-                                    ContextCompat.startForegroundService(this@MainActivity, Intent(this@MainActivity, ShiftService::class.java))
-                                    shiftActive = true
-                                } else {
-                                    stopService(Intent(this@MainActivity, ShiftService::class.java))
-                                    shiftActive = false
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(14.dp)
-                        ) { Text(if (shiftActive) "پایان شیفت" else "شروع شیفت") }
-                    }
-
-                    OutlinedButton(
-                        enabled = teamId.isNotBlank() && unitName.isNotBlank(),
-                        onClick = {
-                            scope.launch {
-                                val intent = Intent(this@MainActivity, MapPickerActivity::class.java)
-                                val hasLocation = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                                if (hasLocation) runCatching { locationHelper.current() }.getOrNull()?.let { loc ->
-                                    intent.putExtra("startLat", loc.latitude)
-                                    intent.putExtra("startLon", loc.longitude)
-                                }
-                                mapPickerLauncher.launch(intent)
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = FireRed)
-                    ) { Text("انتخاب نقطه روی نقشه و ارسال") }
-
-                    Button(
-                        enabled = teamId.isNotBlank() && unitName.isNotBlank(),
-                        onClick = {
-                            val hasLocation = ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                            if (!hasLocation) status = "ابتدا مجوز موقعیت را بدهید."
-                            else scope.launch {
-                                status = "در حال دریافت GPS..."
-                                runCatching {
-                                    val location = locationHelper.current()
-                                    repo.sendIncident(teamId, Incident(latitude = location.latitude, longitude = location.longitude, accuracyM = location.accuracy.toDouble(), note = note, unitName = unitName))
-                                }.onSuccess { status = "موقعیت ارسال شد."; note = "" }
-                                    .onFailure { status = it.message ?: "ارسال ناموفق" }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(14.dp)
-                    ) { Text("ارسال موقعیت فعلی") }
-
-                    if (status.isNotBlank()) {
-                        Text(status, color = if (status.contains("خطا") || status.contains("ناموفق")) FireRed else Color(0xFF268A45), modifier = Modifier.fillMaxWidth())
-                    }
-                    if (joinRequests.isNotEmpty()) {
-                        HorizontalDivider(color = Color(0xFFE5E5E7))
-                        Text("درخواست‌های عضویت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        joinRequests.forEach { req ->
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = SoftRed)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(req.displayName, fontWeight = FontWeight.Bold)
-                                        Text(req.email, color = Muted, style = MaterialTheme.typography.bodySmall)
-                                    }
-                                    Button(
-                                        onClick = {
-                                            scope.launch {
-                                                runCatching { repo.approveJoinRequest(teamId, req) }
-                                                    .onSuccess { status = "${req.displayName} عضو تیم شد." }
-                                                    .onFailure { status = it.message ?: "تأیید ناموفق بود" }
-                                            }
-                                        },
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) { Text("تأیید") }
-                                }
-                            }
-                        }
-                    }
-                    HorizontalDivider(color = Color(0xFFE5E5E7))
-                    Text("آخرین موقعیت‌ها", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            items(incidents, key = { it.id }) { incident ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F9))
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Text(incident.unitName, fontWeight = FontWeight.Bold)
-                            Text(incident.status, color = FireRed, fontWeight = FontWeight.Bold)
-                        }
-                        Text("%.6f, %.6f".format(incident.latitude, incident.longitude), color = Ink)
-                        Text("دقت GPS: ${incident.accuracyM.toInt()} متر", color = Muted)
-                        if (incident.note.isNotBlank()) Text(incident.note)
-                        HorizontalDivider(color = Color(0xFFE4E4E6))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            TextButton(onClick = { ShareUtils.openMap(this@MainActivity, incident) }) { Text("نقشه", color = FireRed) }
-                            TextButton(onClick = {
-                                scope.launch {
-                                    runCatching { repo.acknowledge(teamId, incident.id, unitName) }
-                                        .onSuccess { status = "دریافت تأیید شد." }
-                                        .onFailure { status = it.message ?: "خطا" }
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text("تیم‌های من", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        when {
+                            loadingTeams -> Text("در حال دریافت تیم‌ها...", color = Muted)
+                            teams.isEmpty() -> {
+                                Text("هنوز عضویت فعالی برای این حساب پیدا نشد.", color = Muted)
+                                Text("اگر درخواست فرستاده‌اید، پس از تأیید مدیر دوباره وارد شوید.", color = Muted)
+                            }
+                            else -> teams.forEach { team ->
+                                OutlinedButton(
+                                    onClick = {
+                                        selectedTeamId = team.teamId
+                                        prefs.teamId = team.teamId
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(14.dp)
+                                ) {
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            if (team.teamId == selectedTeamId) "✓ ${team.name}" else team.name,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            "کد: ${team.code} • ${if (team.role == "admin") "مدیر" else "عضو"}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Muted
+                                        )
+                                    }
                                 }
-                            }) { Text("دریافت شد") }
-                            TextButton(onClick = { ShareUtils.openSms(this@MainActivity, smsNumber, incident) }) { Text("SMS", color = FireRed) }
+                            }
+                        }
+
+                        TextButton(
+                            onClick = { showCreateTeam = !showCreateTeam },
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text(if (showCreateTeam) "بستن ساخت تیم" else "ساخت تیم جدید با همین حساب") }
+
+                        if (showCreateTeam) {
+                            OutlinedTextField(
+                                managerName, { managerName = it },
+                                label = { Text("نام مدیر") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            OutlinedTextField(
+                                newTeamName, { newTeamName = it },
+                                label = { Text("نام تیم / ایستگاه") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                shape = RoundedCornerShape(14.dp)
+                            )
+                            Button(
+                                onClick = {
+                                    scope.launch {
+                                        runCatching { repo.createTeamForCurrentUser(newTeamName, managerName) }
+                                            .onSuccess { created ->
+                                                status = "تیم ساخته شد. کد تیم: ${created.code}"
+                                                newTeamName = ""
+                                                showCreateTeam = false
+                                                refreshTeams()
+                                                selectedTeamId = created.teamId
+                                                prefs.teamId = created.teamId
+                                            }.onFailure { status = it.message ?: "ساخت تیم ناموفق بود." }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text("ساخت تیم") }
+                        }
+                    }
+                }
+            }
+
+            if (selectedTeam != null) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = SoftRed)
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Text(selectedTeam.name, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge)
+                            Text("کد تیم: ${selectedTeam.code}", color = FireRed, fontWeight = FontWeight.Bold)
+                            Text(if (isAdmin) "دسترسی: مدیر تیم" else "دسترسی: عضو تیم", color = Muted)
+                        }
+                    }
+                }
+
+                if (isAdmin) {
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = SoftRed)
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    "درخواست‌های عضویت در انتظار تأیید (${joinRequests.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                if (joinRequests.isEmpty()) {
+                                    Text("درخواستی در انتظار نیست.", color = Muted)
+                                } else {
+                                    joinRequests.forEach { req ->
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = CardDefaults.cardColors(containerColor = Color.White)
+                                        ) {
+                                            Column(
+                                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(7.dp)
+                                            ) {
+                                                Text(req.displayName, fontWeight = FontWeight.Bold)
+                                                Text(req.email, color = Muted, style = MaterialTheme.typography.bodySmall)
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                                ) {
+                                                    Button(
+                                                        onClick = {
+                                                            scope.launch {
+                                                                runCatching { repo.approveJoinRequest(selectedTeamId, req) }
+                                                                    .onSuccess { status = "${req.displayName} عضو تیم شد." }
+                                                                    .onFailure { status = it.message ?: "تأیید ناموفق بود" }
+                                                            }
+                                                        },
+                                                        modifier = Modifier.weight(1f),
+                                                        shape = RoundedCornerShape(12.dp)
+                                                    ) { Text("تأیید") }
+                                                    OutlinedButton(
+                                                        onClick = {
+                                                            scope.launch {
+                                                                runCatching { repo.rejectJoinRequest(selectedTeamId, req) }
+                                                                    .onSuccess { status = "درخواست ${req.displayName} رد شد." }
+                                                                    .onFailure { status = it.message ?: "رد درخواست ناموفق بود" }
+                                                            }
+                                                        },
+                                                        modifier = Modifier.weight(1f),
+                                                        shape = RoundedCornerShape(12.dp)
+                                                    ) { Text("رد") }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            unitName, { unitName = it; prefs.unitName = it },
+                            label = { Text("نام واحد / خودرو") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        OutlinedTextField(
+                            smsNumber, { smsNumber = it; prefs.smsNumber = it },
+                            label = { Text("شماره مقصد SMS (اختیاری)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                        OutlinedTextField(
+                            note, { note = it },
+                            label = { Text("توضیح حادثه (اختیاری)") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    val permissions = buildList {
+                                        add(Manifest.permission.ACCESS_FINE_LOCATION)
+                                        add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                                        if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+                                    }.toTypedArray()
+                                    permissionLauncher.launch(permissions)
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text("مجوزها") }
+
+                            OutlinedButton(
+                                onClick = {
+                                    if (!shiftActive) {
+                                        ContextCompat.startForegroundService(
+                                            this@MainActivity,
+                                            Intent(this@MainActivity, ShiftService::class.java)
+                                        )
+                                        shiftActive = true
+                                    } else {
+                                        stopService(Intent(this@MainActivity, ShiftService::class.java))
+                                        shiftActive = false
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text(if (shiftActive) "پایان شیفت" else "شروع شیفت") }
+                        }
+
+                        OutlinedButton(
+                            enabled = unitName.isNotBlank(),
+                            onClick = {
+                                scope.launch {
+                                    val intent = Intent(this@MainActivity, MapPickerActivity::class.java)
+                                    val hasLocation =
+                                        ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                                        ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                    if (hasLocation) {
+                                        runCatching { locationHelper.current() }.getOrNull()?.let { loc ->
+                                            intent.putExtra("startLat", loc.latitude)
+                                            intent.putExtra("startLon", loc.longitude)
+                                        }
+                                    }
+                                    mapPickerLauncher.launch(intent)
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = FireRed)
+                        ) { Text("انتخاب نقطه روی نقشه و ارسال") }
+
+                        Button(
+                            enabled = unitName.isNotBlank(),
+                            onClick = {
+                                val hasLocation =
+                                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                                    ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                                if (!hasLocation) {
+                                    status = "ابتدا مجوز موقعیت را بدهید."
+                                } else {
+                                    scope.launch {
+                                        status = "در حال دریافت GPS..."
+                                        runCatching {
+                                            val location = locationHelper.current()
+                                            repo.sendIncident(
+                                                selectedTeamId,
+                                                Incident(
+                                                    latitude = location.latitude,
+                                                    longitude = location.longitude,
+                                                    accuracyM = location.accuracy.toDouble(),
+                                                    note = note,
+                                                    unitName = unitName
+                                                )
+                                            )
+                                        }.onSuccess {
+                                            status = "موقعیت ارسال شد."
+                                            note = ""
+                                        }.onFailure { status = it.message ?: "ارسال ناموفق" }
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp)
+                        ) { Text("ارسال موقعیت فعلی") }
+
+                        if (status.isNotBlank()) {
+                            Text(
+                                status,
+                                color = if (
+                                    status.contains("خطا") ||
+                                    status.contains("ناموفق") ||
+                                    status.contains("معتبر نیست")
+                                ) FireRed else Success
+                            )
+                        }
+
+                        HorizontalDivider()
+                        Text("آخرین موقعیت‌ها", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                items(incidents, key = { it.id }) { incident ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F9))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text(incident.unitName, fontWeight = FontWeight.Bold)
+                                Text(incident.status, color = FireRed, fontWeight = FontWeight.Bold)
+                            }
+                            Text("%.6f, %.6f".format(incident.latitude, incident.longitude))
+                            Text("دقت GPS: ${incident.accuracyM.toInt()} متر", color = Muted)
+                            if (incident.note.isNotBlank()) Text(incident.note)
+                            HorizontalDivider()
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                                TextButton(onClick = { ShareUtils.openMap(this@MainActivity, incident) }) {
+                                    Text("نقشه", color = FireRed)
+                                }
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        runCatching { repo.acknowledge(selectedTeamId, incident.id, unitName) }
+                                            .onSuccess { status = "دریافت تأیید شد." }
+                                            .onFailure { status = it.message ?: "خطا" }
+                                    }
+                                }) { Text("دریافت شد") }
+                                TextButton(onClick = { ShareUtils.openSms(this@MainActivity, smsNumber, incident) }) {
+                                    Text("SMS", color = FireRed)
+                                }
+                            }
                         }
                     }
                 }
             }
 
             item {
-                Column(modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
                     TextButton(onClick = onSignOut) { Text("خروج") }
-                    Text("Designed by  GM", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.End, color = Muted, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Designed by  GM",
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.End,
+                        color = Muted,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
