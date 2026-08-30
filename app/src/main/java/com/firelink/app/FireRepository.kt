@@ -4,6 +4,13 @@ import kotlinx.coroutines.tasks.await
 class FireRepository {
     private fun teamRoot(teamId:String)=FirebaseProvider.db.reference.child("teams").child(teamId)
     suspend fun signIn(email:String,password:String){FirebaseProvider.auth.signInWithEmailAndPassword(email.trim(),password).await()}
+    suspend fun registerUser(email:String, password:String):String {
+        require(password.length >= 8) { "رمز عبور باید حداقل ۸ کاراکتر باشد." }
+        val result = FirebaseProvider.auth.createUserWithEmailAndPassword(email.trim(), password).await()
+        val uid = result.user?.uid ?: error("ساخت حساب ناموفق بود")
+        FirebaseProvider.auth.signOut()
+        return uid
+    }
     suspend fun sendIncident(teamId:String, incident:Incident):Incident {
         val ref = teamRoot(teamId).child("incidents").push()
         val uid = FirebaseProvider.auth.currentUser?.uid ?: error("کاربر وارد نشده است")

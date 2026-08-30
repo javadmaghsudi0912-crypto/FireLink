@@ -107,29 +107,71 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun LoginScreen(onSuccess: () -> Unit) {
         val scope = rememberCoroutineScope()
+        val repo = remember { FireRepository() }
+        var registerMode by remember { mutableStateOf(false) }
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
+        var confirmPassword by remember { mutableStateOf("") }
+        var displayName by remember { mutableStateOf("") }
+        var teamId by remember { mutableStateOf("") }
         var message by remember { mutableStateOf("") }
+
         Column(
             modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             BrandHeader()
-            Text("ورود اعضای تیم", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(if (registerMode) "ثبت‌نام عضو جدید" else "ورود اعضای تیم", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+
+            if (registerMode) {
+                OutlinedTextField(displayName, { displayName = it }, label = { Text("نام و نام خانوادگی") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
+                OutlinedTextField(teamId, { teamId = it }, label = { Text("شناسه گروه موردنظر") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
+            }
+
             OutlinedTextField(email, { email = it }, label = { Text("ایمیل") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
             OutlinedTextField(password, { password = it }, label = { Text("رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))
+            if (registerMode) {
+                OutlinedTextField(confirmPassword, { confirmPassword = it }, label = { Text("تکرار رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))
+                Text("برای امنیت، ثبت‌نام به معنی عضویت خودکار در تیم نیست. مدیر باید UID شما را تأیید کند.", color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
+
             Button(
                 onClick = {
                     scope.launch {
-                        runCatching { FireRepository().signIn(email, password) }
-                            .onSuccess { onSuccess() }
-                            .onFailure { message = it.message ?: "خطا در ورود" }
+                        message = ""
+                        if (!registerMode) {
+                            runCatching { repo.signIn(email, password) }
+                                .onSuccess { onSuccess() }
+                                .onFailure { message = it.message ?: "خطا در ورود" }
+                        } else {
+                            when {
+                                displayName.trim().length < 2 -> message = "نام را کامل وارد کنید."
+                                teamId.trim().isBlank() -> message = "شناسه گروه را وارد کنید."
+                                !email.contains("@") -> message = "ایمیل معتبر وارد کنید."
+                                password.length < 8 -> message = "رمز عبور باید حداقل ۸ کاراکتر باشد."
+                                password != confirmPassword -> message = "تکرار رمز عبور یکسان نیست."
+                                else -> runCatching { repo.registerUser(email, password) }
+                                    .onSuccess { uid ->
+                                        message = "حساب ساخته شد. برای عضویت در ${teamId.trim()} این UID را برای مدیر بفرستید: ${uid}"
+                                        password = ""
+                                        confirmPassword = ""
+                                    }
+                                    .onFailure { message = it.message ?: "ثبت‌نام ناموفق بود" }
+                            }
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp)
-            ) { Text("ورود") }
-            if (message.isNotBlank()) Text(message, color = FireRed)
+            ) { Text(if (registerMode) "ساخت حساب" else "ورود") }
+
+            OutlinedButton(
+                onClick = { registerMode = !registerMode; message = "" },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp)
+            ) { Text(if (registerMode) "حساب دارم — ورود" else "عضو جدید هستم — ثبت‌نام") }
+
+            if (message.isNotBlank()) Text(message, color = if (message.startsWith("حساب ساخته شد")) Color(0xFF268A45) else FireRed)
         }
     }
 
