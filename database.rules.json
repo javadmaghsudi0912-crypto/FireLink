@@ -1,12 +1,23 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
     "teams": {
       "$teamId": {
         ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+        ".write": "auth != null && !data.exists() && newData.hasChildren(['info','members']) && newData.child('info').child('ownerUid').val() === auth.uid && newData.child('members').child(auth.uid).child('role').val() === 'admin'",
+        "info": {
+          ".write": "auth != null && root.child('teams').child($teamId).child('members').child(auth.uid).child('role').val() === 'admin'",
+          ".validate": "newData.hasChildren(['name','code','ownerUid','createdAt','active']) && newData.child('name').isString() && newData.child('name').val().length >= 2 && newData.child('name').val().length <= 120 && newData.child('code').isString() && newData.child('code').val() === $teamId && newData.child('ownerUid').isString() && newData.child('createdAt').isNumber() && newData.child('active').isBoolean()",
+          "$other": { ".validate": false }
+        },
         "members": {
           "$uid": {
             ".write": "auth != null && root.child('teams').child($teamId).child('members').child(auth.uid).child('role').val() === 'admin'",
-            ".validate": "newData.hasChildren(['displayName','role']) && newData.child('displayName').isString() && newData.child('displayName').val().length <= 100 && newData.child('role').isString() && (newData.child('role').val() === 'admin' || newData.child('role').val() === 'member')",
+            ".validate": "newData.hasChildren(['displayName','role']) && newData.child('displayName').isString() && newData.child('displayName').val().length >= 2 && newData.child('displayName').val().length <= 100 && newData.child('role').isString() && (newData.child('role').val() === 'admin' || newData.child('role').val() === 'member')",
+            "displayName": { ".validate": "newData.isString()" },
+            "role": { ".validate": "newData.val() === 'admin' || newData.val() === 'member'" },
+            "joinedAt": { ".validate": "!newData.exists() || newData.isNumber()" },
             "$other": { ".validate": false }
           }
         },
@@ -36,9 +47,18 @@
       "$teamId": {
         ".read": "auth != null && root.child('teams').child($teamId).child('members').child(auth.uid).child('role').val() === 'admin'",
         "$uid": {
-          ".write": "auth != null && (auth.uid === $uid || root.child('teams').child($teamId).child('members').child(auth.uid).child('role').val() === 'admin')",
+          ".write": "auth != null && root.child('teams').child($teamId).exists() && (auth.uid === $uid || root.child('teams').child($teamId).child('members').child(auth.uid).child('role').val() === 'admin')",
           ".validate": "!newData.exists() || (newData.hasChildren(['uid','displayName','email','teamId','createdAt']) && newData.child('uid').val() === $uid && newData.child('teamId').val() === $teamId && newData.child('displayName').isString() && newData.child('displayName').val().length > 1 && newData.child('displayName').val().length <= 100 && newData.child('email').isString() && newData.child('email').val().length <= 200 && newData.child('createdAt').isNumber())",
           "$other": { ".validate": false }
+        }
+      }
+    },
+    "userTeams": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$teamId": {
+          ".write": "auth != null && ((auth.uid === $uid && root.child('teams').child($teamId).child('members').child(auth.uid).exists()) || root.child('teams').child($teamId).child('members').child(auth.uid).child('role').val() === 'admin')",
+          ".validate": "!newData.exists() || newData.val() === true"
         }
       }
     }
