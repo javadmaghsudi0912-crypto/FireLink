@@ -4,12 +4,53 @@ import kotlinx.coroutines.tasks.await
 class FireRepository {
     private fun teamRoot(teamId:String)=FirebaseProvider.db.reference.child("teams").child(teamId)
     suspend fun signIn(email:String,password:String){FirebaseProvider.auth.signInWithEmailAndPassword(email.trim(),password).await()}
-    suspend fun registerUser(email:String, password:String):String {
+    suspend fun registerUser(email:String, password:String, displayName:String, teamId:String):String {
         require(password.length >= 8) { "رمز عبور باید حداقل ۸ کاراکتر باشد." }
         val result = FirebaseProvider.auth.createUserWithEmailAndPassword(email.trim(), password).await()
         val uid = result.user?.uid ?: error("ساخت حساب ناموفق بود")
+        submitJoinRequest(teamId, displayName, email)
         FirebaseProvider.auth.signOut()
         return uid
+    }
+
+    suspend fun requestJoinExisting(email:String, password:String, displayName:String, teamId:String) {
+        FirebaseProvider.auth.signInWithEmailAndPassword(email.trim(), password).await()
+        submitJoinRequest(teamId, displayName, email)
+        FirebaseProvider.auth.signOut()
+    }
+
+    private suspend fun submitJoinRequest(teamId:String, displayName:String, email:String) {
+        val uid = FirebaseProvider.auth.currentUser?.uid ?: error("ابتدا وارد حساب شوید")
+        val values = mapOf(
+            "uid" to uid,
+            "displayName" to displayName.trim(),
+            "email" to email.trim(),
+            "teamId" to teamId.trim(),
+            "createdAt" to System.currentTimeMillis()
+        )
+        FirebaseProvider.db.reference.child("joinRequests").child(teamId.trim()).child(uid).setValue(values).await()
+    }
+
+    fun observeJoinRequests(teamId:String,onChange:(List<JoinRequest>)->Unit,onError:(String)->Unit):ValueEventListener {
+        val ref = FirebaseProvider.db.reference.child("joinRequests").child(teamId)
+        val listener = object:ValueEventListener {
+            override fun onDataChange(s:DataSnapshot) {
+                onChange(s.children.mapNotNull { snap -> snap.getValue(JoinRequest::class.java)?.copy(uid = snap.key ?: "") }.sortedBy { it.createdAt })
+            }
+            override fun onCancelled(e:DatabaseError) { onError(e.message) }
+        }
+        ref.addValueEventListener(listener)
+        return listener
+    }
+
+    suspend fun approveJoinRequest(teamId:String, request:JoinRequest) {
+        val member = mapOf("displayName" to request.displayName, "role" to "member")
+        val root = FirebaseProvider.db.reference
+        val updates = mapOf<String,Any?>(
+            "/teams/$teamId/members/${request.uid}" to member,
+            "/joinRequests/$teamId/${request.uid}" to null
+        )
+        root.updateChildren(updates).await()
     }
     suspend fun sendIncident(teamId:String, incident:Incident):Incident {
         val ref = teamRoot(teamId).child("incidents").push()

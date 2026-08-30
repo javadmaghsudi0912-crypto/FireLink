@@ -190,9 +190,9 @@ class MainActivity : ComponentActivity() {
                                             !email.contains("@") -> message = "ایمیل معتبر وارد کنید."
                                             password.length < 8 -> message = "رمز عبور باید حداقل ۸ کاراکتر باشد."
                                             password != confirmPassword -> message = "تکرار رمز عبور یکسان نیست."
-                                            else -> runCatching { repo.registerUser(email, password) }
+                                            else -> runCatching { repo.registerUser(email, password, displayName, teamId) }
                                                 .onSuccess { uid ->
-                                                    message = "حساب ساخته شد. UID برای تأیید مدیر: $uid"
+                                                    message = "حساب ساخته شد و درخواست عضویت برای مدیر ارسال شد."
                                                     password = ""
                                                     confirmPassword = ""
                                                 }
@@ -210,6 +210,25 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp)
                         ) { Text(if (registerMode) "قبلاً ثبت‌نام کرده‌ام" else "ساخت حساب عضو جدید") }
+
+                        if (registerMode) {
+                            TextButton(
+                                onClick = {
+                                    scope.launch {
+                                        message = ""
+                                        when {
+                                            displayName.trim().length < 2 -> message = "نام را کامل وارد کنید."
+                                            teamId.trim().isBlank() -> message = "شناسه گروه را وارد کنید."
+                                            email.isBlank() || password.isBlank() -> message = "ایمیل و رمز را وارد کنید."
+                                            else -> runCatching { repo.requestJoinExisting(email, password, displayName, teamId) }
+                                                .onSuccess { message = "درخواست عضویت برای مدیر ارسال شد." }
+                                                .onFailure { message = it.message ?: "ارسال درخواست ناموفق بود" }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) { Text("حسابم ساخته شده — فقط درخواست عضویت بفرست") }
+                        }
 
                         if (message.isNotBlank()) {
                             Card(
@@ -240,6 +259,7 @@ class MainActivity : ComponentActivity() {
         var smsNumber by remember { mutableStateOf(prefs.smsNumber) }
         var note by remember { mutableStateOf("") }
         var incidents by remember { mutableStateOf(emptyList<Incident>()) }
+        var joinRequests by remember { mutableStateOf(emptyList<JoinRequest>()) }
         var status by remember { mutableStateOf("") }
         var shiftActive by remember { mutableStateOf(false) }
 
@@ -265,7 +285,10 @@ class MainActivity : ComponentActivity() {
         }
 
         LaunchedEffect(teamId) {
-            if (teamId.isNotBlank()) repo.observeIncidents(teamId, { incidents = it }, { status = it })
+            if (teamId.isNotBlank()) {
+                repo.observeIncidents(teamId, { incidents = it }, { status = it })
+                repo.observeJoinRequests(teamId, { joinRequests = it }, { /* only admins can read requests */ })
+            }
         }
 
         LazyColumn(
@@ -346,6 +369,38 @@ class MainActivity : ComponentActivity() {
 
                     if (status.isNotBlank()) {
                         Text(status, color = if (status.contains("خطا") || status.contains("ناموفق")) FireRed else Color(0xFF268A45), modifier = Modifier.fillMaxWidth())
+                    }
+                    if (joinRequests.isNotEmpty()) {
+                        HorizontalDivider(color = Color(0xFFE5E5E7))
+                        Text("درخواست‌های عضویت", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        joinRequests.forEach { req ->
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = SoftRed)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(req.displayName, fontWeight = FontWeight.Bold)
+                                        Text(req.email, color = Muted, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Button(
+                                        onClick = {
+                                            scope.launch {
+                                                runCatching { repo.approveJoinRequest(teamId, req) }
+                                                    .onSuccess { status = "${req.displayName} عضو تیم شد." }
+                                                    .onFailure { status = it.message ?: "تأیید ناموفق بود" }
+                                            }
+                                        },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) { Text("تأیید") }
+                                }
+                            }
+                        }
                     }
                     HorizontalDivider(color = Color(0xFFE5E5E7))
                     Text("آخرین موقعیت‌ها", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
