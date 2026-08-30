@@ -10,15 +10,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,6 +42,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -95,12 +100,30 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     private fun BrandHeader() {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("FireLink", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Text("GM", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = FireRed)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(22.dp),
+            colors = CardDefaults.cardColors(containerColor = SoftRed)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier.size(56.dp).background(FireRed, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("GM", color = Color.White, fontWeight = FontWeight.ExtraBold, style = MaterialTheme.typography.titleLarge)
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("FireLink", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = Ink)
+                        Text("GM", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.ExtraBold, color = FireRed)
+                    }
+                    Text("سامانه اشتراک موقعیت عملیات", color = Muted, style = MaterialTheme.typography.bodyMedium)
+                }
             }
-            Text("اشتراک موقعیت عملیات", color = Muted, style = MaterialTheme.typography.bodyMedium)
         }
     }
 
@@ -116,62 +139,93 @@ class MainActivity : ComponentActivity() {
         var teamId by remember { mutableStateOf("") }
         var message by remember { mutableStateOf("") }
 
-        Column(
-            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().safeDrawingPadding().padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            BrandHeader()
-            Text(if (registerMode) "ثبت‌نام عضو جدید" else "ورود اعضای تیم", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            item { BrandHeader() }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White)
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(13.dp)
+                    ) {
+                        Text(
+                            if (registerMode) "ساخت حساب جدید" else "ورود به FireLink GM",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Ink
+                        )
+                        Text(
+                            if (registerMode) "مشخصات خود را وارد کنید؛ عضویت تیم پس از تأیید مدیر فعال می‌شود." else "با حساب عضو تیم وارد شوید.",
+                            color = Muted
+                        )
 
-            if (registerMode) {
-                OutlinedTextField(displayName, { displayName = it }, label = { Text("نام و نام خانوادگی") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
-                OutlinedTextField(teamId, { teamId = it }, label = { Text("شناسه گروه موردنظر") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
-            }
+                        if (registerMode) {
+                            OutlinedTextField(displayName, { displayName = it }, label = { Text("نام و نام خانوادگی") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
+                            OutlinedTextField(teamId, { teamId = it }, label = { Text("شناسه گروه") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
+                        }
+                        OutlinedTextField(email, { email = it }, label = { Text("ایمیل") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(16.dp))
+                        OutlinedTextField(password, { password = it }, label = { Text("رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(16.dp))
+                        if (registerMode) {
+                            OutlinedTextField(confirmPassword, { confirmPassword = it }, label = { Text("تکرار رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(16.dp))
+                        }
 
-            OutlinedTextField(email, { email = it }, label = { Text("ایمیل") }, modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp))
-            OutlinedTextField(password, { password = it }, label = { Text("رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))
-            if (registerMode) {
-                OutlinedTextField(confirmPassword, { confirmPassword = it }, label = { Text("تکرار رمز عبور") }, modifier = Modifier.fillMaxWidth(), singleLine = true, visualTransformation = PasswordVisualTransformation(), shape = RoundedCornerShape(14.dp))
-                Text("برای امنیت، ثبت‌نام به معنی عضویت خودکار در تیم نیست. مدیر باید UID شما را تأیید کند.", color = Muted, style = MaterialTheme.typography.bodySmall)
-            }
-
-            Button(
-                onClick = {
-                    scope.launch {
-                        message = ""
-                        if (!registerMode) {
-                            runCatching { repo.signIn(email, password) }
-                                .onSuccess { onSuccess() }
-                                .onFailure { message = it.message ?: "خطا در ورود" }
-                        } else {
-                            when {
-                                displayName.trim().length < 2 -> message = "نام را کامل وارد کنید."
-                                teamId.trim().isBlank() -> message = "شناسه گروه را وارد کنید."
-                                !email.contains("@") -> message = "ایمیل معتبر وارد کنید."
-                                password.length < 8 -> message = "رمز عبور باید حداقل ۸ کاراکتر باشد."
-                                password != confirmPassword -> message = "تکرار رمز عبور یکسان نیست."
-                                else -> runCatching { repo.registerUser(email, password) }
-                                    .onSuccess { uid ->
-                                        message = "حساب ساخته شد. برای عضویت در ${teamId.trim()} این UID را برای مدیر بفرستید: ${uid}"
-                                        password = ""
-                                        confirmPassword = ""
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    message = ""
+                                    if (!registerMode) {
+                                        runCatching { repo.signIn(email, password) }
+                                            .onSuccess { onSuccess() }
+                                            .onFailure { message = it.message ?: "خطا در ورود" }
+                                    } else {
+                                        when {
+                                            displayName.trim().length < 2 -> message = "نام را کامل وارد کنید."
+                                            teamId.trim().isBlank() -> message = "شناسه گروه را وارد کنید."
+                                            !email.contains("@") -> message = "ایمیل معتبر وارد کنید."
+                                            password.length < 8 -> message = "رمز عبور باید حداقل ۸ کاراکتر باشد."
+                                            password != confirmPassword -> message = "تکرار رمز عبور یکسان نیست."
+                                            else -> runCatching { repo.registerUser(email, password) }
+                                                .onSuccess { uid ->
+                                                    message = "حساب ساخته شد. UID برای تأیید مدیر: $uid"
+                                                    password = ""
+                                                    confirmPassword = ""
+                                                }
+                                                .onFailure { message = it.message ?: "ثبت‌نام ناموفق بود" }
+                                        }
                                     }
-                                    .onFailure { message = it.message ?: "ثبت‌نام ناموفق بود" }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) { Text(if (registerMode) "ثبت‌نام امن" else "ورود", modifier = Modifier.padding(vertical = 4.dp), fontWeight = FontWeight.Bold) }
+
+                        OutlinedButton(
+                            onClick = { registerMode = !registerMode; message = "" },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp)
+                        ) { Text(if (registerMode) "قبلاً ثبت‌نام کرده‌ام" else "ساخت حساب عضو جدید") }
+
+                        if (message.isNotBlank()) {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(containerColor = if (message.startsWith("حساب ساخته شد")) Color(0xFFF0FAF3) else SoftRed)
+                            ) {
+                                Text(message, modifier = Modifier.padding(12.dp), color = if (message.startsWith("حساب ساخته شد")) Color(0xFF268A45) else FireRed)
                             }
                         }
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
-            ) { Text(if (registerMode) "ساخت حساب" else "ورود") }
-
-            OutlinedButton(
-                onClick = { registerMode = !registerMode; message = "" },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(14.dp)
-            ) { Text(if (registerMode) "حساب دارم — ورود" else "عضو جدید هستم — ثبت‌نام") }
-
-            if (message.isNotBlank()) Text(message, color = if (message.startsWith("حساب ساخته شد")) Color(0xFF268A45) else FireRed)
+                }
+            }
+            item {
+                Text("GM • Fire & Rescue Technology", modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), textAlign = TextAlign.Center, color = Muted, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 
